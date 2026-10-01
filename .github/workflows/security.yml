@@ -43,6 +43,24 @@ jobs:
       - uses: github/codeql-action/analyze@v4
         with:
           category: /language:csharp
+          output: ../results
+
+      - name: Install SARIF to HTML converter
+        run: npm install -g @microsoft/sarif-multitool
+
+      - name: Convert CodeQL SARIF to HTML
+        run: |
+          mkdir -p reports
+          npx sarif-to-html ../results/csharp.sarif -o reports/codeql-report.html || true
+
+      - name: Upload Scan Reports (HTML & SARIF)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-scan-reports
+          path: |
+            reports/*.html
+            ../results/*.sarif
 
   # dependency-scan:
   #   name: NuGet vulnerability scan
