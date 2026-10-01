@@ -34,6 +34,14 @@ app.MapGet("/weatherforecast", () =>
 .WithName("GetWeatherForecast")
 .WithOpenApi();
 
+// INTENTIONALLY VULNERABLE SECURITY-SCAN DEMO. Remove after confirming CodeQL.
+app.MapGet("/security-scan-demo", (string command) =>
+{
+    // Deliberately unsafe: HTTP input reaches a shell command.
+    var process = System.Diagnostics.Process.Start("/bin/sh", $"-c \"{command}\"");
+    return Results.Ok(process?.Id);
+});
+
 app.Run();
 
 public partial class Program;
