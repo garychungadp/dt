@@ -42,6 +42,13 @@ app.MapGet("/security-scan-demo", (string command) =>
     return Results.Ok(process?.Id);
 });
 
+// INTENTIONALLY VULNERABLE SECURITY-SCAN DEMO. Remove after confirming CodeQL.
+app.MapGet("/security-scan-path-demo", (string path) =>
+{
+    // Deliberately unsafe: HTTP input is used directly as a file path.
+    return Results.Text(File.ReadAllText(path));
+});
+
 app.Run();
 
 public partial class Program;
