@@ -2,8 +2,9 @@ name: CI # Pull Request 的建置與測試流程。
 
 # 當 Pull Request 目標為部署分支時，執行驗證流程。
 on:
-  pull_request:
-    branches: [development, testing, staging, production]
+  workflow_dispatch:
+  # pull_request:
+  #   branches: [development, testing, staging, production]
 
 # CI 只有讀取權限，不會取得 Azure 或 Production 憑證。
 permissions:

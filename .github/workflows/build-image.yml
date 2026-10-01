@@ -1,12 +1,13 @@
 name: Build Image
 
 on:
-  push:
-    branches:
-      - development
-      - testing
-      - staging
-      - production
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - development
+  #     - testing
+  #     - staging
+  #     - production
 
 permissions:
   contents: read

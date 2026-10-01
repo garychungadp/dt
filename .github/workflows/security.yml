@@ -1,57 +1,99 @@
-name: Security # Pull Request 的安全檢查流程。
+name: Security
 
-# 只有 Pull Request 目標為部署分支時，才執行安全檢查。
+# Push is enabled now. To also scan pull requests, uncomment pull_request.
 on:
-  pull_request:
+  push:
     branches: [development, testing, staging, production]
+  # pull_request:
+  #   branches: [development, testing, staging, production]
 
-# 目前是唯讀與模擬檢查權限，不會取得 Production 憑證。
 permissions:
   contents: read
   security-events: write
   actions: read
 
 jobs:
-  # 模擬 Secret Scan，用來驗證 Security Gate 流程。
   secret-scan:
-    name: secret-scan
+    name: Secret scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo "[SIMULATED] Secret scan passed"
-
-  dependency-scan:
-    # 模擬 NuGet 相依套件弱點檢查。
-    name: dependency-scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with: {dotnet-version: 8.x}
-      - run: echo "[SIMULATED] NuGet dependency scan passed; no High/Critical vulnerabilities"
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   sast:
-    # 模擬 C# SAST 靜態程式碼安全檢查。
-    name: sast
+    name: CodeQL SAST
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo "[SIMULATED] CodeQL C# SAST passed"
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+          queries: security-extended
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
+      - uses: github/codeql-action/autobuild@v3
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:csharp
 
-  license-scan:
-    # 模擬第三方套件授權檢查。
-    name: license-scan
+  dependency-scan:
+    name: NuGet vulnerability scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: {dotnet-version: 8.x}
-      - run: echo "[SIMULATED] NuGet license scan passed"
+        with:
+          dotnet-version: 8.x
+      - name: Restore solution
+        run: dotnet restore dt.sln
+      - name: Check vulnerable NuGet packages
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet list dt.sln package --vulnerable --include-transitive --format json | tee nuget-vulnerabilities.json
+          if jq -e 'any(.. | objects; has("severity"))' nuget-vulnerabilities.json >/dev/null; then
+            echo "Vulnerable NuGet package(s) found."
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nuget-vulnerability-report
+          path: nuget-vulnerabilities.json
 
-  iac-scan:
-    # 模擬 Docker、Kubernetes 或其他 IaC 檢查。
-    name: iac-scan
+  license-scan:
+    name: NuGet license report
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo "[SIMULATED] IaC scan passed; no High/Critical findings"
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
+      - name: Install license scanner
+        run: dotnet tool install --global dotnet-project-licenses
+      - name: Generate NuGet license report
+        shell: bash
+        run: dotnet-project-licenses -i dt.sln -o nuget-licenses.csv -f CSV
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nuget-license-report
+          path: nuget-licenses.csv
+
+  iac-scan:
+    name: IaC scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          format: table
