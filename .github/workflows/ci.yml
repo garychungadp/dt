@@ -1,0 +1,77 @@
+name: CI # Pull Request 的建置與測試流程。
+
+# 當 Pull Request 目標為部署分支時，執行驗證流程。
+on:
+  pull_request:
+    branches: [development, testing, staging, production]
+
+# CI 只有讀取權限，不會取得 Azure 或 Production 憑證。
+permissions:
+  contents: read
+
+jobs:
+  # Build 是兩個測試 Job 的前置條件。
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    outputs:
+      has-dotnet: ${{ steps.detect.outputs.has-dotnet }}
+    steps:
+      # 取出 Pull Request 實際要驗證的版本。
+      - uses: actions/checkout@v4
+      - id: detect
+        shell: bash
+        run: |
+          if find . -type f \( -name '*.sln' -o -name '*.slnx' -o -name '*.csproj' \) -not -path './.git/*' | grep -q .; then
+            echo 'has-dotnet=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'has-dotnet=false' >> "$GITHUB_OUTPUT"
+            echo 'No .NET solution or project exists yet; CI will report this clearly.'
+          fi
+      - if: steps.detect.outputs.has-dotnet == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
+      - if: steps.detect.outputs.has-dotnet == 'true'
+        shell: bash
+        run: |
+          dotnet restore dt.sln
+          dotnet build dt.sln --configuration Release --no-restore
+
+  unit-test:
+    name: unit-test
+    # 單元測試等待 Build 完成，並與整合測試平行執行。
+    needs: build
+    if: needs.build.outputs.has-dotnet == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      # 每個 Job 使用獨立 Runner，因此必須重新 Checkout 與 Restore。
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
+      - shell: bash
+        run: |
+          dotnet restore dt.sln
+          mapfile -t tests < <(find . -type f -name '*[Tt]est*.csproj' -not -iname '*[Ii]ntegration*.csproj' -not -path './.git/*' -not -path '*/obj/*')
+          if [ "${#tests[@]}" -eq 0 ]; then echo 'No unit test project found; skipping.'; exit 0; fi
+          for test in "${tests[@]}"; do dotnet test "$test" --configuration Release --no-restore --logger trx; done
+
+  integration-test:
+    name: integration-test
+    # 整合測試也需要先完成 Build，但可以與單元測試平行執行。
+    needs: build
+    if: needs.build.outputs.has-dotnet == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      # 因為這是獨立 Runner，所以需要重新執行 Restore。
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
+      - shell: bash
+        run: |
+          dotnet restore dt.sln
+          mapfile -t tests < <(find . -type f -iname '*integration*.csproj' -not -path './.git/*' -not -path '*/obj/*')
+          if [ "${#tests[@]}" -eq 0 ]; then echo 'No integration test project found; skipping.'; exit 0; fi
+          for test in "${tests[@]}"; do dotnet test "$test" --configuration Release --no-restore --logger trx; done

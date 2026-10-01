@@ -1,0 +1,99 @@
+name: CD
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        required: true
+        type: string
+      target_environment:
+        required: true
+        type: string
+      target_type:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: GitHub Actions Build Image run ID to deploy
+        required: true
+        type: string
+      target_type:
+        description: 'Deployment target type: aks or vm'
+        required: true
+        type: choice
+        options:
+          - aks
+          - vm
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.target_environment || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download build metadata for manual deployment
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.build_run_id }}
+          pattern: image-metadata-*
+          merge-multiple: true
+          path: metadata
+      - name: Resolve manual deployment image
+        if: github.event_name == 'workflow_dispatch'
+        id: metadata
+        shell: bash
+        run: echo "image=$(cat metadata/image.txt)" >> "$GITHUB_OUTPUT"
+      - uses: azure/login@v2
+        name: Azure login
+        with:
+          auth-type: SERVICE_PRINCIPAL
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+            }
+      - name: Deploy Image to AKS
+        if: ${{ inputs.target_type == 'aks' }}
+        env:
+          IMAGE: ${{ inputs.image || steps.metadata.outputs.image }}
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AKS_CLUSTER_NAME: ${{ vars.AKS_CLUSTER_NAME }}
+          AKS_NAMESPACE: ${{ vars.AKS_NAMESPACE }}
+        run: bash .github/scripts/deploy-aks.sh "${{ inputs.target_environment || 'production' }}" "$IMAGE"
+      - name: Deploy Image to VM
+        if: inputs.target_type == 'vm'
+        env:
+          IMAGE: ${{ inputs.image || steps.metadata.outputs.image }}
+          VM_HOST: ${{ vars.VM_HOST }}
+          VM_USER: ${{ vars.VM_USER }}
+          VM_DEPLOY_PATH: ${{ vars.VM_DEPLOY_PATH }}
+          VM_SSH_PRIVATE_KEY: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          VM_SSH_PASSWORD: ${{ secrets.VM_SSH_PASSWORD }}
+        run: bash .github/scripts/deploy-vm.sh "${{ inputs.target_environment || 'production' }}" "$IMAGE"
+      - name: AKS Health Check
+        if: ${{ inputs.target_type == 'aks' && (inputs.target_environment == 'staging' || inputs.target_environment == 'production') }}
+        env:
+          AKS_CLUSTER_NAME: ${{ vars.AKS_CLUSTER_NAME }}
+          AKS_NAMESPACE: ${{ vars.AKS_NAMESPACE }}
+        run: bash .github/scripts/health-check-aks.sh "${{ inputs.target_environment || 'production' }}"
+      - name: VM Health Check
+        if:  inputs.target_type == 'vm'
+        env:
+          VM_HOST: ${{ vars.VM_HOST }}
+          VM_USER: ${{ vars.VM_USER }}
+          VM_DEPLOY_PATH: ${{ vars.VM_DEPLOY_PATH }}
+          VM_HEALTHCHECK_URL: ${{ vars.VM_HEALTHCHECK_URL }}
+          VM_SSH_PRIVATE_KEY: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          VM_SSH_PASSWORD: ${{ secrets.VM_SSH_PASSWORD }}
+        run: bash .github/scripts/health-check-vm.sh "${{ inputs.target_environment || 'production' }}"

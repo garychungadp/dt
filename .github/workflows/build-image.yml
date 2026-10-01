@@ -1,0 +1,86 @@
+name: Build Image
+
+on:
+  push:
+    branches:
+      - development
+      - testing
+      - staging
+      - production
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-image:
+    name: build-image
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      target-environment: ${{ steps.environment.outputs.target }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: image
+        run: echo "image=${{ vars.ACR_LOGIN_SERVER }}/${{ vars.IMAGE_REPOSITORY }}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+      - id: environment
+        shell: bash
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            development) echo 'target=development' >> "$GITHUB_OUTPUT" ;;
+            testing) echo 'target=testing' >> "$GITHUB_OUTPUT" ;;
+            staging) echo 'target=staging' >> "$GITHUB_OUTPUT" ;;
+            production) echo 'target=production' >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unsupported branch: ${GITHUB_REF_NAME}"; exit 1 ;;
+          esac
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: ${{ steps.image.outputs.image }}
+      - run: echo "[SIMULATED] Container scan passed for ${{ steps.image.outputs.image }}"
+      - uses: azure/login@v2
+        name: Azure login
+        with:
+          auth-type: SERVICE_PRINCIPAL
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+            }
+      - name: Login to Azure Container Registry
+        run: az acr login --name ${{vars.ACR_LOGIN_NAME}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.image }}
+      - name: Save build metadata
+        run: |
+          mkdir -p metadata
+          printf '%s\n' "${{ steps.image.outputs.image }}" > metadata/image.txt
+          printf '%s\n' "$GITHUB_RUN_ID" > metadata/build-run-id.txt
+          printf '%s\n' "$GITHUB_SHA" > metadata/sha.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-metadata-${{ github.run_id }}
+          path: metadata
+          retention-days: 90
+
+  auto-deploy:
+    name: auto-deploy
+    needs: build-image
+    if: ${{ github.ref_name == 'development' || github.ref_name == 'testing' || github.ref_name == 'staging' }}
+    uses: ./.github/workflows/cd.yml
+    with:
+      image: ${{ needs.build-image.outputs.image }}
+      target_environment: ${{ needs.build-image.outputs.target-environment }}
+      target_type: aks
+    secrets: inherit

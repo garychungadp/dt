@@ -1,0 +1,57 @@
+name: Security # Pull Request 的安全檢查流程。
+
+# 只有 Pull Request 目標為部署分支時，才執行安全檢查。
+on:
+  pull_request:
+    branches: [development, testing, staging, production]
+
+# 目前是唯讀與模擬檢查權限，不會取得 Production 憑證。
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  # 模擬 Secret Scan，用來驗證 Security Gate 流程。
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "[SIMULATED] Secret scan passed"
+
+  dependency-scan:
+    # 模擬 NuGet 相依套件弱點檢查。
+    name: dependency-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: {dotnet-version: 8.x}
+      - run: echo "[SIMULATED] NuGet dependency scan passed; no High/Critical vulnerabilities"
+
+  sast:
+    # 模擬 C# SAST 靜態程式碼安全檢查。
+    name: sast
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "[SIMULATED] CodeQL C# SAST passed"
+
+  license-scan:
+    # 模擬第三方套件授權檢查。
+    name: license-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: {dotnet-version: 8.x}
+      - run: echo "[SIMULATED] NuGet license scan passed"
+
+  iac-scan:
+    # 模擬 Docker、Kubernetes 或其他 IaC 檢查。
+    name: iac-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "[SIMULATED] IaC scan passed; no High/Critical findings"
