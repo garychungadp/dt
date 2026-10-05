@@ -117,12 +117,19 @@ jobs:
         shell: bash
         env:
           DOTNET_ROLL_FORWARD: Major
-        run: dotnet-project-licenses -i dt.sln -o nuget-licenses.csv -f CSV
+        run: |
+          mkdir -p reports
+          dotnet-project-licenses -i dt.sln -u -o -j -f reports --outfile licenses.json --include-project-file || true
+          dotnet-project-licenses -i dt.sln -u -o -f reports --outfile licenses.txt || true
+          python .github/scripts/generate-license-report.py reports/licenses.json reports/nuget-license-report.html
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: nuget-license-report
-          path: nuget-licenses.csv
+          name: nuget-license-reports
+          path: |
+            reports/nuget-license-report.html
+            reports/licenses.json
+            reports/licenses.txt
 
   iac-scan:
     name: IaC scan

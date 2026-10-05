@@ -9,6 +9,12 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.21" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+
+    <!-- 1. dependency-scan 測試：具備已知重大 CVE 的舊版套件 (GHSA-5crp-9r3c-p9vr) -->
+    <PackageReference Include="Newtonsoft.Json" Version="9.0.1" />
+
+    <!-- 2. license-scan 測試：強傳染性 AGPL 商業風險授權套件 (AGPL-3.0) -->
+    <PackageReference Include="iTextSharp" Version="5.5.13.4" />
   </ItemGroup>
 
 </Project>
