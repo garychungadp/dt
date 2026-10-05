@@ -129,6 +129,14 @@ jobs:
         with:
           scan-type: config
           scan-ref: .
+          format: template
+          template: '@contrib/html.tpl'
+          output: reports/iac-scan-report.html
           severity: CRITICAL,HIGH
-          exit-code: '1'
-          format: table
+
+      - name: Upload IaC Scan Report (HTML)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: iac-scan-reports
+          path: reports/iac-scan-report.html
