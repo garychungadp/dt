@@ -63,7 +63,7 @@ def sarif_to_html(sarif_path, output_path):
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>CodeQL Security Scan Report</title>
+    <title>{html.escape(tool_name)} 安全掃描報告</title>
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 30px; background-color: #f6f8fa; color: #24292f; }}
         .container {{ max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }}
@@ -86,7 +86,7 @@ def sarif_to_html(sarif_path, output_path):
 </head>
 <body>
     <div class="container">
-        <h1>🛡️ CodeQL 安全掃描報告 (Security Scan Report)</h1>
+        <h1>🛡️ {html.escape(tool_name)} 安全掃描報告</h1>
         <div class="summary">
             <div class="card"><div class="label">總風險數</div><div class="num">{total}</div></div>
             <div class="card danger"><div class="label">高風險 (Error)</div><div class="num">{errors}</div></div>

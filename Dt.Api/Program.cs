@@ -67,8 +67,15 @@ app.Run();
 
 public partial class Program
 {
-    // 4. Gitleaks / Secret Scanning 測試金鑰 (符合 AWS Access Key 標準特徵格式)
-    public const string DemoAwsAccessKey = "AKIAIOSFODNN7EXAMPLE";
+    // Gitleaks / GitHub Secret Scanning 觸發範例 (符合常見雲端平台特徵)
+    // 1. GitHub Personal Access Token (PAT) 格式
+    public const string DemoGitHubPat = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+    // 2. Stripe API Secret Key 格式
+    public const string DemoStripeSecret = "sk_live_51NzT1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    // 3. Slack Bot Token 格式
+    public const string DemoSlackToken = "xoxb-123456789012-1234567890123-abcdefghijklmnopqrstuvwx";
 }
 
 public record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)

@@ -22,8 +22,24 @@ jobs:
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+
+      - name: Generate HTML Report for Secret Scan
+        if: always()
+        run: |
+          python .github/scripts/generate-report.py gitleaks-results.sarif reports/secret-scan-report.html
+
+      - name: Upload Secret Scan Reports (HTML & SARIF)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: secret-scan-reports
+          path: |
+            reports/secret-scan-report.html
+            gitleaks-results.sarif
 
   sast:
     name: CodeQL SAST
