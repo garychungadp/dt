@@ -69,13 +69,13 @@ public partial class Program
 {
     // Gitleaks / GitHub Secret Scanning 觸發範例 (符合常見雲端平台特徵)
     // 1. GitHub Personal Access Token (PAT) 格式 (規則: github-pat)
-    public const string DemoGitHubPat = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    public const string DemoGitHubPat = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ9876543210";
 
     // 2. Stripe API Secret Key 格式 (規則: stripe-access-token)
-    public const string DemoStripeSecret = "sk_live_51NzT1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    public const string DemoStripeSecret = "sk_live_51NzT1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRDEWJHSI";
 
     // 3. Slack Bot Token 格式 (規則: slack-bot-token)
-    public const string DemoSlackToken = "xoxb-123456789012-1234567890123-abcdefghijklmnopqrstuvwx";
+    public const string DemoSlackToken = "xoxb-123456789012-1234567890123-abcdefghijklmnasdfwe";
 }
 
 public record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
