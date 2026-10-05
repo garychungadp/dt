@@ -30,7 +30,7 @@ jobs:
       - name: Generate HTML Report for Secret Scan
         if: always()
         run: |
-          python .github/scripts/generate-report.py gitleaks-results.sarif reports/secret-scan-report.html
+          python .github/scripts/generate-report.py results.sarif reports/secret-scan-report.html
 
       - name: Upload Secret Scan Reports (HTML & SARIF)
         uses: actions/upload-artifact@v4
@@ -39,7 +39,7 @@ jobs:
           name: secret-scan-reports
           path: |
             reports/secret-scan-report.html
-            gitleaks-results.sarif
+            results.sarif
 
   sast:
     name: CodeQL SAST
