@@ -133,7 +133,7 @@ jobs:
           scan-type: config
           scan-ref: .
           format: template
-          template: '@contrib/html.tpl'
+          template: '@.github/templates/html.tpl'
           output: reports/iac-scan-report.html
           severity: CRITICAL,HIGH
 
