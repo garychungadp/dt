@@ -16,13 +16,23 @@ def sarif_to_html(sarif_path, output_path):
 
     for run in runs:
         tool_name = run.get('tool', {}).get('driver', {}).get('name', 'Scanner')
-        rules = {r.get('id'): r for r in run.get('tool', {}).get('driver', {}).get('rules', [])}
+        rules_by_id = {r.get('id'): r for r in run.get('tool', {}).get('driver', {}).get('rules', [])}
+        rules_list = run.get('tool', {}).get('driver', {}).get('rules', [])
 
         for res in run.get('results', []):
-            rule_id = res.get('ruleId', 'N/A')
-            rule_info = rules.get(rule_id, {})
+            rule_id = res.get('ruleId')
+            rule_index = res.get('ruleIndex')
+            rule_info = {}
+            if rule_id and rule_id in rules_by_id:
+                rule_info = rules_by_id[rule_id]
+            elif rule_index is not None and isinstance(rule_index, int) and 0 <= rule_index < len(rules_list):
+                rule_info = rules_list[rule_index]
+                rule_id = rule_info.get('id', 'N/A')
+            elif not rule_id:
+                rule_id = 'N/A'
+
             msg = res.get('message', {}).get('text', '')
-            level = res.get('level', 'warning')
+            level = res.get('level') or rule_info.get('defaultConfiguration', {}).get('level') or 'warning'
             
             locations = res.get('locations', [])
             loc_str = 'N/A'
@@ -113,7 +123,7 @@ def sarif_to_html(sarif_path, output_path):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
-    print(f"Report generated successfully: {output_path}")
+    print(f"Report generated successfully: {output_path} (Total findings: {total}, Errors: {errors}, Warnings: {warnings})")
 
 if __name__ == '__main__':
     sarif_file = sys.argv[1] if len(sys.argv) > 1 else 'results/csharp.sarif'
