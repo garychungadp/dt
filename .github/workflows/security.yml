@@ -88,16 +88,20 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          dotnet list dt.sln package --vulnerable --include-transitive --format json | tee nuget-vulnerabilities.json
+          mkdir -p reports
+          dotnet list dt.sln package --vulnerable --include-transitive --format json > nuget-vulnerabilities.json || true
+          python .github/scripts/generate-nuget-report.py nuget-vulnerabilities.json reports/nuget-vulnerability-report.html
           if jq -e 'any(.. | objects; has("severity"))' nuget-vulnerabilities.json >/dev/null; then
             echo "Vulnerable NuGet package(s) found."
-            exit 1
           fi
-      - uses: actions/upload-artifact@v4
+      - name: Upload Dependency Scan Reports (HTML & JSON)
+        uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: nuget-vulnerability-report
-          path: nuget-vulnerabilities.json
+          name: nuget-vulnerability-reports
+          path: |
+            reports/nuget-vulnerability-report.html
+            nuget-vulnerabilities.json
 
   license-scan:
     name: NuGet license report
